@@ -4,20 +4,26 @@ import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
-# --- 1. テクニカル指標を計算する関数 ---
+# --- 1. テクニカル指標を計算する関数 (修正版) ---
 def calculate_indicators(df):
     """日足データと週足データにテクニカル指標を追加する"""
     # --- 日足指標 ---
     df['SMA200'] = df['Close'].rolling(window=200).mean()
-    df['SMA20'] = df['Close'].rolling(window=20).mean()
-    df['BB_UPPER'] = df['SMA20'] + df['Close'].rolling(window=20).std() * 2
-    df['BB_LOWER'] = df['SMA20'] - df['Close'].rolling(window=20).std() * 2
     
+    # ▼▼▼【ここを修正】ボリンジャーバンドの計算を分割して堅牢にする ▼▼▼
+    df['SMA20'] = df['Close'].rolling(window=20).mean()
+    rolling_std = df['Close'].rolling(window=20).std() # 標準偏差を一度だけ計算
+    df['BB_UPPER'] = df['SMA20'] + (rolling_std * 2)
+    df['BB_LOWER'] = df['SMA20'] - (rolling_std * 2)
+    # ▲▲▲【修正ここまで】▲▲▲
+
     # RSI
     delta = df['Close'].diff()
     gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
     loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+    # ゼロ除算を回避
     rs = gain / loss
+    rs = rs.fillna(0) # lossが0の場合に発生するNaNを0で埋める
     df['RSI'] = 100 - (100 / (1 + rs))
     
     # MACD
